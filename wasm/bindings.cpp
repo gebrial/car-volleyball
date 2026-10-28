@@ -4,6 +4,7 @@
 // recorded in Python can be passed straight in.
 
 #include <array>
+#include <set>
 #include <vector>
 
 #include <emscripten/bind.h>
@@ -142,6 +143,7 @@ public:
 			initialized = true;
 		}
 		arena = Arena::Create(GameMode::THE_VOID, {}, tickRate);
+		arena->SetBallTouchCallback(&Sim::onBallTouch, this);
 	}
 	~Sim() { delete arena; }
 
@@ -181,10 +183,28 @@ public:
 		arena->ball->SetState(s);
 	}
 
-	void step(int ticks) { arena->Step(ticks); }
+	/** A fresh car state at rest, keeping only position, rotation and boost: how the court respawns a car. */
+	void resetCar(uint32_t id, Vec pos, const std::array<Vec, 3>& rotMat, float boost) {
+		CarState s;
+		s.pos = pos;
+		s.rotMat = toRotMat(rotMat);
+		s.boost = boost;
+		car(id)->SetState(s);
+	}
+
+	void step(int ticks) {
+		touched.clear();
+		arena->Step(ticks);
+	}
+
+	/** The cars that touched the ball during the last step(), by id. */
+	std::vector<uint32_t> touchedCarIds() const { return std::vector<uint32_t>(touched.begin(), touched.end()); }
 
 private:
 	Arena* arena;
+	std::set<uint32_t> touched;
+
+	static void onBallTouch(Arena*, Car* car, void* self) { static_cast<Sim*>(self)->touched.insert(car->id); }
 
 	Car* car(uint32_t id) {
 		Car* c = arena->GetCar(id);
@@ -199,6 +219,7 @@ EMSCRIPTEN_BINDINGS(rocketsim) {
 	value_array<std::array<bool, 4>>("Wheels").element(emscripten::index<0>()).element(emscripten::index<1>()).element(emscripten::index<2>()).element(emscripten::index<3>());
 	register_vector<Vec>("VecList");
 	register_vector<int>("IntList");
+	register_vector<uint32_t>("IdList");
 
 	value_object<CarControlsJS>("CarControls")
 		.field("throttle", &CarControlsJS::throttle).field("steer", &CarControlsJS::steer)
@@ -253,5 +274,7 @@ EMSCRIPTEN_BINDINGS(rocketsim) {
 		.function("setCarControls", &Sim::setCarControls)
 		.function("getBallState", &Sim::getBallState)
 		.function("setBallState", &Sim::setBallState)
-		.function("step", &Sim::step);
+		.function("resetCar", &Sim::resetCar)
+		.function("step", &Sim::step)
+		.function("touchedCarIds", &Sim::touchedCarIds);
 }

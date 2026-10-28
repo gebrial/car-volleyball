@@ -89,7 +89,17 @@ export interface Sim {
   setCarControls(id: number, c: CarControls): void;
   getBallState(): SimBallState;
   setBallState(s: SimBallState): void;
+  /** A fresh car state at rest, keeping only position, rotation and boost. */
+  resetCar(id: number, pos: Vec3, rotMat: RotMat, boost: number): void;
   step(ticks: number): void;
+  /** The cars that touched the ball during the last step(), by id. */
+  touchedCarIds(): number[];
+  delete(): void;
+}
+
+interface EmbindList {
+  size(): number;
+  get(i: number): number;
   delete(): void;
 }
 
@@ -110,6 +120,13 @@ export async function loadRocketSim(): Promise<RocketSim> {
       const sim = new m.Sim(tickRate);
       const addStaticMesh = sim.addStaticMesh.bind(sim);
       // embind takes std::vector arguments as its own list objects.
+      const touchedCarIds = sim.touchedCarIds.bind(sim);
+      sim.touchedCarIds = () => {
+        const list = touchedCarIds() as unknown as EmbindList;
+        const ids = Array.from({ length: list.size() }, (_, i) => list.get(i));
+        list.delete();
+        return ids;
+      };
       sim.addStaticMesh = (vertices, triangles) => {
         const vs = new m.VecList();
         const ts = new m.IntList();
