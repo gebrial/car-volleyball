@@ -27,3 +27,9 @@ training repo:
 
 The tests run every release's fixtures, so a new release is covered as soon
 as it is copied in.
+
+## Rules fixtures
+
+`fixtures/volleyball-rules/rules_events.json` comes from the training repo's
+`python volleyball_fixtures.py`, copied in by hand. `src/volleyball.ts` must
+replay every sequence in it with the same events and shot clock.

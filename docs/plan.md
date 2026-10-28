@@ -94,6 +94,8 @@ Steps 6 and 7 don't depend on steps 2–5. Volleyball training does not start un
 
 - Step 2 done on 2026-10-27. `web_release.py --volleyball` exported `volleyball1-gravity-ramp-post` (94 inputs, 821 samples; ONNX matches PyTorch to 1.13e-5, float32 rounding at logits up to ±150, so the bar is now 5e-5). `src/obs.ts` rebuilds every recorded observation of both releases to 1e-6, and `onnxruntime-web` gives the recorded probabilities within 5e-5.
 
+- Step 7 done on 2026-10-27. `src/volleyball.ts` ports `volleyball.py` (`Rally`, `Match`) and replays all 30 sequences of `fixtures/volleyball-rules/rules_events.json` with identical events and shot clock values every tick. Breaking rules on purpose showed two the fixtures never exercised: a car touching the ball as it flips upward near the floor, and the receiver hitting out. `volleyball_fixtures.py` now hand-builds both. `Match` has no fixtures; its tests check the serve, first to 11, and win by 2 directly.
+
 ## Open
 
 - Shot clock length. Stage 1 trains on 8 s throughout.
