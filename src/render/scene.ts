@@ -160,12 +160,14 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
     return v.lengthSq() < 1e-6 ? v.set(0, 0, 1) : v.normalize();
   }
 
-  // The camera's angle around the car and the point it looks at both ease
-  // towards their targets, so turning, ball cam and the stick never snap.
+  // The camera circles the car: its angle around the car eases towards the
+  // target the short way round, and it always looks along that angle, so
+  // turning, ball cam and the stick swing it round rather than across. Only
+  // how high it looks eases separately, which keeps ball cam on the ball.
   let cameraYaw = 0;
   let cameraHeight = CAMERA_HEIGHT;
-  // Where the camera looks, relative to the car, so a fast car never outruns it.
-  const lookOffset = new THREE.Vector3();
+  let lookRise = 0;
+  const LOOK_AHEAD = 200;
 
   function yawOf(v: THREE.Vector3): number {
     return Math.atan2(v.x, v.z);
@@ -185,26 +187,30 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
     }
     ballCam &&= swivel === null;
 
-    const lookTarget = ballCam ? carPos.clone().lerp(ballPos, 0.5) : carPos.clone().addScaledVector(heading, 200);
-    lookTarget.y = Math.max(lookTarget.y, carPos.y + 30);
+    // How far above the car the look point sits, LOOK_AHEAD out: towards the
+    // midpoint of car and ball in ball cam, just above the car otherwise.
+    let riseTarget = 30;
+    if (ballCam) {
+      const mid = carPos.clone().lerp(ballPos, 0.5);
+      const across = Math.hypot(mid.x - carPos.x, mid.z - carPos.z);
+      riseTarget = Math.max(30, ((mid.y - carPos.y) * LOOK_AHEAD) / Math.max(across, LOOK_AHEAD));
+    }
+
+    const target = yawOf(heading);
     if (!cameraReady) {
-      cameraYaw = yawOf(heading);
-      lookOffset.subVectors(lookTarget, carPos);
+      cameraYaw = target;
+      lookRise = riseTarget;
       cameraReady = true;
     }
     const t = 1 - Math.exp(-CAMERA_FOLLOW * dt);
-    // The shorter way round.
-    const turn = Math.atan2(Math.sin(yawOf(heading) - cameraYaw), Math.cos(yawOf(heading) - cameraYaw));
-    cameraYaw += turn * t;
+    cameraYaw += Math.atan2(Math.sin(target - cameraYaw), Math.cos(target - cameraYaw)) * t;
     cameraHeight += (Math.max(carPos.y + CAMERA_HEIGHT, 40) - carPos.y - cameraHeight) * t;
-    lookOffset.lerp(lookTarget.sub(carPos), t);
+    lookRise += (riseTarget - lookRise) * t;
 
-    camera.position.set(
-      carPos.x - Math.sin(cameraYaw) * CAMERA_DISTANCE,
-      carPos.y + cameraHeight,
-      carPos.z - Math.cos(cameraYaw) * CAMERA_DISTANCE,
-    );
-    camera.lookAt(carPos.add(lookOffset));
+    const dx = Math.sin(cameraYaw);
+    const dz = Math.cos(cameraYaw);
+    camera.position.set(carPos.x - dx * CAMERA_DISTANCE, carPos.y + cameraHeight, carPos.z - dz * CAMERA_DISTANCE);
+    camera.lookAt(carPos.x + dx * LOOK_AHEAD, carPos.y + lookRise, carPos.z + dz * LOOK_AHEAD);
   }
 
   return {
