@@ -113,6 +113,8 @@ Steps 6 and 7 don't depend on steps 2–5. Volleyball training does not start un
 
 - Step 9's headless measurement done on 2026-10-27. `scripts/measure.ts` plays `volleyball1-gravity-ramp-post` against itself on the WASM court (`src/game.ts`, `src/court.ts`, `src/bot.ts`), 400 rallies in about a minute. Over three seeds each, the browser and Python's `volleyball_measurements.py` agree: server won 65.5% and 67.1%, touches per rally 5.47 and 5.52, rallies ending in, out and on the clock 582/583/35 and 589/582/30, about 18.5 car crossings a minute in both. The ball came back over the net in 94.8% of browser rallies and 92.7% of Python ones, about two standard errors apart: small enough to be noise, or a small difference in the serve's starting car state (the browser starts from RocketSim's default car state, Python from rlgym's). The bot plays in the browser as it does in training.
 
+- The playable court went live on 2026-10-27 at https://volleyball.gebrial.ca: the player on blue against `volleyball1-gravity-ramp-post`, one match to the defaults, then play again (`src/main.ts`, `src/input.ts`, `src/render/scene.ts`). Gamepad controls follow the user's layout (LB/RB air roll and powerslide, right stick swivels the camera). The camera circles the car at an eased angle; car cam follows the car's horizontal travel in the air. CI publishes `main` to GitHub Pages after the checks pass. Next: match flow (start screen, pause, match over, rematch), then settings.
+
 ## Open
 
 - Shot clock length. Stage 1 trains on 8 s throughout.
