@@ -22,7 +22,7 @@ const CAR_REST_HEIGHT = 17;
 const CAMERA_FOV_HORIZONTAL = 110;
 const CAMERA_DISTANCE = 270;
 const CAMERA_HEIGHT = 100;
-const CAMERA_FOLLOW = 12; // per second; higher follows more tightly
+const CAMERA_FOLLOW = 6; // per second; higher follows more tightly
 
 // RocketSim is z up with blue's half at y < 0; three.js is y up. The game's
 // world is left-handed (a car facing +x with z up has its right at +y), so
@@ -160,6 +160,17 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
     return v.lengthSq() < 1e-6 ? v.set(0, 0, 1) : v.normalize();
   }
 
+  // The camera's angle around the car and the point it looks at both ease
+  // towards their targets, so turning, ball cam and the stick never snap.
+  let cameraYaw = 0;
+  let cameraHeight = CAMERA_HEIGHT;
+  // Where the camera looks, relative to the car, so a fast car never outruns it.
+  const lookOffset = new THREE.Vector3();
+
+  function yawOf(v: THREE.Vector3): number {
+    return Math.atan2(v.x, v.z);
+  }
+
   function placeCamera(carState: SimCarState, ballPos: THREE.Vector3, ballCam: boolean, swivel: number | null, dt: number) {
     const carPos = toScene(carState.pos);
     // Behind the car along where it looks: its heading, swivelled by the
@@ -173,14 +184,27 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
       heading = flat(ballCam ? new THREE.Vector3().subVectors(ballPos, carPos) : toScene(carState.rot_mat[0]));
     }
     ballCam &&= swivel === null;
-    const target = carPos.clone().addScaledVector(heading, -CAMERA_DISTANCE);
-    target.y = Math.max(carPos.y + CAMERA_HEIGHT, 40);
-    const t = cameraReady ? 1 - Math.exp(-CAMERA_FOLLOW * dt) : 1;
-    camera.position.lerp(target, t);
-    cameraReady = true;
-    const look = ballCam ? carPos.clone().lerp(ballPos, 0.5) : carPos.clone().addScaledVector(heading, 200);
-    look.y = Math.max(look.y, carPos.y + 30);
-    camera.lookAt(look);
+
+    const lookTarget = ballCam ? carPos.clone().lerp(ballPos, 0.5) : carPos.clone().addScaledVector(heading, 200);
+    lookTarget.y = Math.max(lookTarget.y, carPos.y + 30);
+    if (!cameraReady) {
+      cameraYaw = yawOf(heading);
+      lookOffset.subVectors(lookTarget, carPos);
+      cameraReady = true;
+    }
+    const t = 1 - Math.exp(-CAMERA_FOLLOW * dt);
+    // The shorter way round.
+    const turn = Math.atan2(Math.sin(yawOf(heading) - cameraYaw), Math.cos(yawOf(heading) - cameraYaw));
+    cameraYaw += turn * t;
+    cameraHeight += (Math.max(carPos.y + CAMERA_HEIGHT, 40) - carPos.y - cameraHeight) * t;
+    lookOffset.lerp(lookTarget.sub(carPos), t);
+
+    camera.position.set(
+      carPos.x - Math.sin(cameraYaw) * CAMERA_DISTANCE,
+      carPos.y + cameraHeight,
+      carPos.z - Math.cos(cameraYaw) * CAMERA_DISTANCE,
+    );
+    camera.lookAt(carPos.add(lookOffset));
   }
 
   return {
