@@ -177,13 +177,13 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
   // points, once it moves fast enough across the ground for that to mean
   // something. On the ground it keeps to the nose, which already points the
   // way the car drives and stays put when reversing.
-  const AIR_TRAVEL_FULL_SPEED = 500;
+  const CAR_CAM_FOLLOWS_TRAVEL_FROM = 500;
   function carCamHeading(carState: SimCarState): THREE.Vector3 {
     const nose = flat(toScene(carState.rot_mat[0]));
     if (carState.is_on_ground) return nose;
     const travel = toScene(carState.vel);
     travel.y = 0;
-    const w = Math.min(1, travel.length() / AIR_TRAVEL_FULL_SPEED);
+    const w = Math.min(1, travel.length() / CAR_CAM_FOLLOWS_TRAVEL_FROM);
     if (w === 0) return nose;
     // Between the two angles the short way round, so opposite directions never cancel.
     const a = yawOf(nose);
