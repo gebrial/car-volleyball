@@ -9,11 +9,17 @@ in `CONTEXT.md`.
 
 ## Running
 
+    git clone --recurse-submodules <this repo>
     npm install
-    npm test        # the parity fixtures
+    npm run build:wasm   # RocketSim to WASM; needs Emscripten 6.0.13 (em++ on PATH, or $EMXX)
+    npm test             # the parity fixtures
     npm run dev
 
-Git LFS holds the model files, so clone with LFS installed.
+Git LFS holds the model files, so clone with LFS installed. RocketSim comes
+from the fork github.com/gebrial/RocketSim (branch `static-collision-shapes`,
+which adds the court's floor and net shapes) as the submodule
+`vendor/RocketSim`. `wasm/bindings.cpp` is what TypeScript sees of it, typed
+in `src/physics.ts`.
 
 ## Releases
 
@@ -33,3 +39,10 @@ as it is copied in.
 `fixtures/volleyball-rules/rules_events.json` comes from the training repo's
 `python volleyball_fixtures.py`, copied in by hand. `src/volleyball.ts` must
 replay every sequence in it with the same events and shot clock.
+
+## Physics fixtures
+
+`fixtures/physics/one_step.json` comes from the training repo's
+`python physics_fixtures.py`, copied in by hand: whole car and ball states
+with controls, and the states 1 and 8 ticks later, in open air (at the soccer
+bot's 0.3804x gravity), on a flat floor, and on the volleyball court.

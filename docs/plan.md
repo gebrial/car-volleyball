@@ -96,6 +96,8 @@ Steps 6 and 7 don't depend on steps 2–5. Volleyball training does not start un
 
 - Step 7 done on 2026-10-27. `src/volleyball.ts` ports `volleyball.py` (`Rally`, `Match`) and replays all 30 sequences of `fixtures/volleyball-rules/rules_events.json` with identical events and shot clock values every tick. Breaking rules on purpose showed two the fixtures never exercised: a car touching the ball as it flips upward near the floor, and the receiver hitting out. `volleyball_fixtures.py` now hand-builds both. `Match` has no fixtures; its tests check the serve, first to 11, and win by 2 directly.
 
+- Step 3 done on 2026-10-27 for open air, a flat floor and the volleyball court, which also covers step 6's WASM shapes. `vendor/RocketSim` is the fork as a submodule, built with Emscripten 6.0.13 by `scripts/build-wasm.mjs` (590 KB of WASM, no `-ffast-math`), bound in `wasm/bindings.cpp` and typed in `src/physics.ts`. The training repo's `physics_fixtures.py` records 100 samples per arena, each set into a fresh arena on both sides, with contacts set up on purpose (ball at a car, car at car, ball at the net). WASM is not bit-exact with native Windows RocketSim. One tick agrees to float32 rounding (at most 3.7e-4 uu/s on speeds near 2300, where float32 steps are 2.4e-4). Over 8 ticks, a contact amplifies that to as much as 0.66 uu and 11 uu/s, while samples without a contact stay near rounding. So a WASM bot will drift from its Python twin within a second of contact-heavy play, and the soccer harness has to be judged by behaviour, not replay. The soccer arena's meshes (local only) are not covered yet.
+
 ## Open
 
 - Shot clock length. Stage 1 trains on 8 s throughout.

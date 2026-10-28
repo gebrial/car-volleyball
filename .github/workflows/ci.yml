@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  EMSDK_VERSION: 6.0.13
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -11,10 +14,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
+          submodules: true
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ env.EMSDK_VERSION }}
+      - name: Install Emscripten
+        run: |
+          [ -d ~/emsdk ] || git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install $EMSDK_VERSION
+          ~/emsdk/emsdk activate $EMSDK_VERSION
       - run: npm ci
+      - name: Build RocketSim to WASM
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          npm run build:wasm
       - run: npm run typecheck
       - run: npm test

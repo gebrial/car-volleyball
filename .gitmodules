@@ -1,0 +1,4 @@
+[submodule "vendor/RocketSim"]
+	path = vendor/RocketSim
+	url = https://github.com/gebrial/RocketSim.git
+	branch = static-collision-shapes
