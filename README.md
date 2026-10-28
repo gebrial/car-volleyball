@@ -24,7 +24,7 @@ in `src/physics.ts`.
 ## Releases
 
 `releases/<milestone>/` holds one web release each: `release.json`, the model
-split into `policy.onnx.part*` (Cloudflare Pages refuses files over 25 MiB),
+split into `policy.onnx.part*` (each under 25 MiB),
 and the parity fixtures recorded in Python RocketSim. They come from the
 training repo:
 

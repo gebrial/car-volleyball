@@ -6,16 +6,16 @@ Settled in a /grill-with-docs session on 2026-10-24 in the training repo (rocket
 
 The **browser game** is a car-volleyball game played against a trained bot, run entirely in the player's browser with no game server. v1 is a demo for the user and friends: playable, and the bot behaves as it does in RocketSim. Polish for strangers comes later. Multiplayer is out of scope for now.
 
-The game lives in this repo, which goes public once there is something to show. The training repo's part is producing **web releases** (an ONNX copy of a milestone's policy, labelled with the milestone name) and **parity fixtures**, and training the volleyball bot.
+The game lives in this repo, which is public. The training repo's part is producing **web releases** (an ONNX copy of a milestone's policy, labelled with the milestone name) and **parity fixtures**, and training the volleyball bot.
 
 Soccer is never published. It exists only as the **soccer harness**: the browser pipeline running `stage11-low-gravity-aerial-curriculum-mid` on the real arena meshes from the user's own game dump, at the gravity and boost consumption that milestone trained at (read the exact values from the gravity schedule, not the report's "about 0.1x"). Its job is to prove the port against a bot whose correct play is already known, so that a wrong-looking volleyball bot can later be blamed on training rather than the port.
 
 ## Browser pipeline
 
-- **Stack:** TypeScript, Vite and three.js; RocketSim compiled to WASM with Emscripten; the policy in ONNX Runtime Web. Hosted as a static site on Cloudflare Pages.
+- **Stack:** TypeScript, Vite and three.js; RocketSim compiled to WASM with Emscripten; the policy in ONNX Runtime Web. Hosted as a static site on GitHub Pages at volleyball.gebrial.ca, deployed by GitHub Actions.
 - **No game assets ship.** The dumped Rocket League meshes stay local and gitignored from this repo's first commit. No Rocket League name, logos or car designs.
 - **The bot samples its actions** from the policy's probabilities, as training, `eval.py` and `watch.py` do. The random generator is seeded so reported oddities can be replayed.
-- **Controls:** Rocket League's default gamepad and keyboard layouts, chase camera with a ball-cam toggle, gamepad first. Key rebinding comes after v1. Both cars use the Octane hitbox and the full control set.
+- **Controls:** the genre's standard gamepad and keyboard layouts, chase camera with a ball-cam toggle, gamepad first. Key rebinding comes after v1. Both cars use RocketSim's default car hitbox, which the bot trained with, and the full control set. The car gets a design and a name of its own.
 - **Parity fixtures**, recorded from Python RocketSim, that this repo's CI must reproduce:
   1. observations from recorded game states, including the orange-side flip;
   2. action probabilities from those observations;
@@ -26,10 +26,23 @@ Soccer is never published. It exists only as the **soccer harness**: the browser
 
 Settled on 2026-10-27.
 
-- **Name:** car-volleyball, a placeholder until the game has a real name. GitHub `gebrial/car-volleyball`, private until there is something to show. Code is MIT.
-- **Releases:** the training repo's `copy_web_release.py` copies a web release into `releases/<milestone>/`: `release.json`, the fixtures in normal git, and the model in Git LFS, split into parts under Cloudflare Pages' 25 MiB file limit and joined on load. The joined bytes must match `release.json`'s SHA-256. Splitting keeps the float32 model the bot was measured with; fp16 is the fallback if download size ever matters.
+- **Name:** car-volleyball, a placeholder until the game has a real name. GitHub `gebrial/car-volleyball`, public. Code is MIT.
+- **Releases:** the training repo's `copy_web_release.py` copies a web release into `releases/<milestone>/`: `release.json`, the fixtures in normal git, and the model in Git LFS, split into parts under 25 MiB (a limit of the first hosting plan, Cloudflare Pages, kept because it costs nothing) and joined on load. The joined bytes must match `release.json`'s SHA-256. Splitting keeps the float32 model the bot was measured with; fp16 is the fallback if download size ever matters.
 - **Toolchain:** npm, TypeScript strict, Vite, Vitest. The fixture tests run in Node on `onnxruntime-web`'s WASM backend, the same runtime players get, with no browser automation until there is a page to test. CI on GitHub Actions runs the type check and the tests.
 - **Both bots:** every release under `releases/` runs its fixtures, so CI covers soccer `-mid` (92 inputs, which exercise the boost pads) and `volleyball1-gravity-ramp-post` (94, the shot clocks).
+
+## The public game (step 9)
+
+Settled on 2026-10-27, when steps 4 and 5 were skipped to get to a playable game sooner.
+
+- **Order:** a headless bot-vs-bot measurement in Node first, compared with `volleyball_measurements.py`'s numbers for `volleyball1-gravity-ramp-post`, which stands in for the soccer harness (the physics fixtures showed browser and Python play drift apart within a second, so the check has to be on how the bot plays, not on replays). Then the playable court: the player against the bot, one match, gamepad and keyboard, chase camera and ball cam, score and shot clock on screen, no menus. Then the first deploy, then match flow (start screen, pause, match over, rematch), then settings.
+- **Input timing:** the player's controls are read every physics tick; the bot acts every 8 ticks, as it trained.
+- **Look:** simple geometric cars, a team-coloured body the size of the hitbox, with wheels. Nothing from Rocket League, by name or by design.
+- **Sides:** the player is always blue. The first server is random; after that the rally winner serves.
+- **Settings in v1:** points to win (5, 11, 21) and the shot clock (4 to 12 s; the bot trained on 8 s, which the settings say). Gravity, boost and the touch limit stay at the training defaults until a bot trains on others.
+- **Loading:** a plain progress bar while the 30 MB model downloads.
+- **Devices:** desktop with a gamepad or keyboard; phones get a message saying so. No sound in v1.
+- **Hosting:** GitHub Pages from GitHub Actions, at volleyball.gebrial.ca (a CNAME to `gebrial.github.io` at the user's DNS host, Squarespace). Cloudflare Pages was the earlier plan; nothing needs its custom headers yet.
 
 ## Volleyball rules
 
@@ -47,7 +60,7 @@ The rules are written twice: as RLGym pieces in the training repo (a done condit
 
 Measured on 2026-10-24 at normal gravity with `court_measurements.py`.
 
-How high an Octane reaches without boost (roof height, then the highest ball centre it can touch from below): a tapped jump 129 and 220, a held jump 272 and 363, a double jump 528 and 620. With unlimited boost there is no flying limit, so the net can't stop anyone flying over. Its height only decides what a jump can do. At 450, a held jump can't hit the ball above the net, but a double jump can, which gives a spike, the way a real net sits below a jumping player's reach.
+How high the car reaches without boost (roof height, then the highest ball centre it can touch from below): a tapped jump 129 and 220, a held jump 272 and 363, a double jump 528 and 620. With unlimited boost there is no flying limit, so the net can't stop anyone flying over. Its height only decides what a jump can do. At 450, a held jump can't hit the ball above the net, but a double jump can, which gives a spike, the way a real net sits below a jumping player's reach.
 
 Driving from rest, with boost and then without: 1000 uu in 1.03 s and 1.38 s, 2000 in 1.56 and 2.15, 3000 in 1.99 and 2.86, 5000 in 2.86 and 4.28. From the middle of a 3500 half, the farthest corner (2475 uu) takes about 1.8 s with boost, while a 1500 uu/s lob at 45° hangs 3.2 s and carries 3242. A defender in position can chase down lobs. Placement and spikes beat one out of position.
 
