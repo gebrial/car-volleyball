@@ -173,6 +173,25 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
     return Math.atan2(v.x, v.z);
   }
 
+  // Car cam in the air looks where the car is going, not where its nose
+  // points, once it moves fast enough across the ground for that to mean
+  // something. On the ground it keeps to the nose, which already points the
+  // way the car drives and stays put when reversing.
+  const AIR_TRAVEL_FULL_SPEED = 500;
+  function carCamHeading(carState: SimCarState): THREE.Vector3 {
+    const nose = flat(toScene(carState.rot_mat[0]));
+    if (carState.is_on_ground) return nose;
+    const travel = toScene(carState.vel);
+    travel.y = 0;
+    const w = Math.min(1, travel.length() / AIR_TRAVEL_FULL_SPEED);
+    if (w === 0) return nose;
+    // Between the two angles the short way round, so opposite directions never cancel.
+    const a = yawOf(nose);
+    const b = yawOf(travel);
+    const yaw = a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * w;
+    return new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+  }
+
   function placeCamera(carState: SimCarState, ballPos: THREE.Vector3, ballCam: boolean, swivel: number | null, dt: number) {
     const carPos = toScene(carState.pos);
     // Behind the car along where it looks: its heading, swivelled by the
@@ -182,8 +201,10 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
       const forward = flat(toScene(carState.rot_mat[0]));
       const right = flat(toScene(carState.rot_mat[1]));
       heading = forward.multiplyScalar(Math.cos(swivel)).addScaledVector(right, Math.sin(swivel)).normalize();
+    } else if (ballCam) {
+      heading = flat(new THREE.Vector3().subVectors(ballPos, carPos));
     } else {
-      heading = flat(ballCam ? new THREE.Vector3().subVectors(ballPos, carPos) : toScene(carState.rot_mat[0]));
+      heading = carCamHeading(carState);
     }
     ballCam &&= swivel === null;
 
