@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Car Volleyball</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="court"></canvas>
+    <div id="hud" hidden>
+      <div class="score"><span class="blue" id="score-blue">0</span><span class="dash">–</span><span class="orange" id="score-orange">0</span></div>
+      <div class="clock" id="clock"></div>
+    </div>
+    <div id="overlay">
+      <h1>Car Volleyball</h1>
+      <p id="message">Loading the bot…</p>
+      <div class="bar"><div id="progress"></div></div>
+      <p class="controls">
+        Gamepad: RT/LT drive, A jump, B boost, LB/RB air roll and powerslide, Y ball cam.<br />
+        Keyboard: W/A/S/D drive, right mouse or Space jump, left mouse or K boost, Shift powerslide, Q/E air roll, C ball cam.
+      </p>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

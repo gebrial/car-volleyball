@@ -3,7 +3,7 @@
 
 import { CAR_REST_Z, TEE_HEIGHT, backLineY, facingNet, netMesh, teeY } from "./court";
 import { BLUE, ORANGE, type GameState, type Team } from "./obs";
-import type { CarControls, RocketSim, Sim, SimCarState } from "./physics";
+import type { CarControls, RocketSim, Sim, SimBallState, SimCarState } from "./physics";
 import { DEFAULT_COURT, Match, Rally, TICK_RATE, type CourtConfig, type MatchSettings, type RallyEvent } from "./volleyball";
 
 const GRAVITY_Z = -650;
@@ -79,6 +79,10 @@ export class VolleyballGame {
       }
     }
     return events;
+  }
+
+  ballState(): SimBallState {
+    return this.sim.getBallState();
   }
 
   carState(team: Team): SimCarState {

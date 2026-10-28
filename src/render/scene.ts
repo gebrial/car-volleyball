@@ -1,0 +1,183 @@
+// The court in three.js: floor and lines, the net, the ball with its shadow,
+// the two cars, and the player's chase camera. Started from the training
+// repo's court viewer. It draws whatever state it is given each frame.
+
+import * as THREE from "three";
+import { BLUE, ORANGE, type Team, type Vec3 } from "../obs";
+import type { SimBallState, SimCarState } from "../physics";
+import { BALL_RADIUS, type CourtConfig } from "../volleyball";
+
+const TEAM_COLORS: Record<Team, number> = { 0: 0x3b82f6, 1: 0xf97316 };
+const LINE_WIDTH = 24;
+
+// RocketSim's default car (its config index 0): hitbox length, width, height
+// and the hitbox's offset from the car's origin, from vendor/RocketSim's
+// CarConfig.cpp. The bot trained with this car, so the body matches it.
+const HITBOX_SIZE: Vec3 = [120.507, 86.6994, 38.6591];
+const HITBOX_OFFSET: Vec3 = [13.8757, 0, 20.755];
+const WHEEL_RADIUS = 13;
+const CAR_REST_HEIGHT = 17;
+
+// The genre's usual chase camera: wide, a few car lengths back, a little above.
+const CAMERA_FOV_HORIZONTAL = 110;
+const CAMERA_DISTANCE = 270;
+const CAMERA_HEIGHT = 100;
+const CAMERA_FOLLOW = 12; // per second; higher follows more tightly
+
+// RocketSim is z up with blue's half at y < 0; three.js is y up. The game's
+// world is left-handed (a car facing +x with z up has its right at +y), so
+// swapping y and z, a reflection rather than a rotation, draws it unmirrored
+// in three.js's right-handed space.
+function toScene([x, y, z]: Vec3): THREE.Vector3 {
+  return new THREE.Vector3(x, z, y);
+}
+
+function courtLines(court: CourtConfig): THREE.Group {
+  const { halfWidth: w, halfLength: l } = court;
+  const material = new THREE.MeshBasicMaterial({ color: 0xf1f5f9 });
+  const strip = (x: number, z: number, sx: number, sz: number) => {
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(sx, sz), material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, 1, z);
+    return mesh;
+  };
+  const lines = new THREE.Group();
+  lines.add(strip(-w, 0, LINE_WIDTH, 2 * l + LINE_WIDTH), strip(w, 0, LINE_WIDTH, 2 * l + LINE_WIDTH));
+  lines.add(strip(0, -l, 2 * w, LINE_WIDTH), strip(0, l, 2 * w, LINE_WIDTH), strip(0, 0, 2 * w, LINE_WIDTH));
+  return lines;
+}
+
+function floor(court: CourtConfig): THREE.Group {
+  const group = new THREE.Group();
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshLambertMaterial({ color: 0x1f2a24 }));
+  ground.rotation.x = -Math.PI / 2;
+  const surface = new THREE.Mesh(new THREE.PlaneGeometry(2 * court.halfWidth, 2 * court.halfLength), new THREE.MeshLambertMaterial({ color: 0x2f4a3a }));
+  surface.rotation.x = -Math.PI / 2;
+  surface.position.y = 0.5;
+  const grid = new THREE.GridHelper(20000, 20, 0x334155, 0x273340);
+  grid.position.y = 0.2;
+  group.add(ground, grid, surface, courtLines(court));
+  return group;
+}
+
+function net(court: CourtConfig): THREE.Group {
+  const { halfWidth: w, netHeight: h, netThickness: t } = court;
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(2 * w, h, t),
+    new THREE.MeshLambertMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.35, depthWrite: false }),
+  );
+  body.position.y = h / 2;
+  const band = new THREE.Mesh(new THREE.BoxGeometry(2 * w, 30, t + 4), new THREE.MeshLambertMaterial({ color: 0xffffff }));
+  band.position.y = h - 15;
+  group.add(body, band);
+  for (const x of [-w, w]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, h), new THREE.MeshLambertMaterial({ color: 0x94a3b8 }));
+    post.position.set(x, h / 2, 0);
+    group.add(post);
+  }
+  return group;
+}
+
+/** A wedge-ish body the size of the hitbox, a cabin, and four wheels. Local axes: x forward, y up, z right. */
+function car(team: Team): THREE.Group {
+  const [length, width, height] = HITBOX_SIZE;
+  const [ox, , oz] = HITBOX_OFFSET;
+  const group = new THREE.Group();
+  group.matrixAutoUpdate = false;
+  const paint = new THREE.MeshLambertMaterial({ color: TEAM_COLORS[team] });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(length, height * 0.6, width), paint);
+  body.position.set(ox, oz - height * 0.2, 0);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(length * 0.45, height * 0.4, width * 0.8), new THREE.MeshLambertMaterial({ color: 0x0f172a }));
+  cabin.position.set(ox - length * 0.1, oz + height * 0.3, 0);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(6, height * 0.3, width * 0.9), new THREE.MeshLambertMaterial({ color: 0xf8fafc }));
+  nose.position.set(ox + length / 2, oz - height * 0.2, 0);
+  group.add(body, cabin, nose);
+  const tyre = new THREE.MeshLambertMaterial({ color: 0x111827 });
+  for (const x of [ox + length * 0.32, ox - length * 0.32]) {
+    for (const z of [-width / 2, width / 2]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 10, 16), tyre);
+      wheel.rotation.x = Math.PI / 2;
+      wheel.position.set(x, WHEEL_RADIUS - CAR_REST_HEIGHT, z);
+      group.add(wheel);
+    }
+  }
+  return group;
+}
+
+function setCarPose(mesh: THREE.Object3D, s: SimCarState) {
+  const forward = toScene(s.rot_mat[0]).normalize();
+  const right = toScene(s.rot_mat[1]);
+  const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+  right.crossVectors(forward, up);
+  mesh.matrix.makeBasis(forward, up, right).setPosition(toScene(s.pos));
+}
+
+export interface CourtScene {
+  /** Draws this state, with the camera following the player's car. dt in seconds since the last frame. */
+  render(ball: SimBallState, cars: Record<Team, SimCarState>, player: Team, ballCam: boolean, dt: number): void;
+}
+
+export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig): CourtScene {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0f172a);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.6));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+  sun.position.set(3000, 8000, -2000);
+  scene.add(sun, floor(court), net(court));
+
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 32, 16), new THREE.MeshLambertMaterial({ color: 0xe5e7eb }));
+  const shadowMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false });
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(BALL_RADIUS, 32), shadowMaterial);
+  shadow.rotation.x = -Math.PI / 2;
+  scene.add(ball, shadow);
+  const cars: Record<Team, THREE.Group> = { 0: car(BLUE), 1: car(ORANGE) };
+  scene.add(cars[BLUE], cars[ORANGE]);
+
+  const camera = new THREE.PerspectiveCamera(70, 1, 10, 200000);
+  let cameraReady = false;
+
+  function resize() {
+    const { clientWidth: width, clientHeight: height } = canvas;
+    const pixelRatio = renderer.getPixelRatio();
+    if (canvas.width === Math.floor(width * pixelRatio) && canvas.height === Math.floor(height * pixelRatio)) return;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    // The FOV setting is horizontal, as the genre states it; three.js takes vertical.
+    camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV_HORIZONTAL / 2)) / camera.aspect));
+    camera.updateProjectionMatrix();
+  }
+
+  function placeCamera(carState: SimCarState, ballPos: THREE.Vector3, ballCam: boolean, dt: number) {
+    const carPos = toScene(carState.pos);
+    // Behind the car along its heading, or along the line from the ball through the car.
+    const heading = ballCam ? new THREE.Vector3().subVectors(ballPos, carPos) : toScene(carState.rot_mat[0]);
+    heading.y = 0;
+    if (heading.lengthSq() < 1e-6) heading.set(0, 0, 1);
+    heading.normalize();
+    const target = carPos.clone().addScaledVector(heading, -CAMERA_DISTANCE);
+    target.y = Math.max(carPos.y + CAMERA_HEIGHT, 40);
+    const t = cameraReady ? 1 - Math.exp(-CAMERA_FOLLOW * dt) : 1;
+    camera.position.lerp(target, t);
+    cameraReady = true;
+    const look = ballCam ? carPos.clone().lerp(ballPos, 0.5) : carPos.clone().addScaledVector(heading, 200);
+    look.y = Math.max(look.y, carPos.y + 30);
+    camera.lookAt(look);
+  }
+
+  return {
+    render(ballState, carStates, player, ballCam, dt) {
+      resize();
+      const b = toScene(ballState.pos);
+      ball.position.copy(b);
+      shadow.position.set(b.x, 2, b.z);
+      shadowMaterial.opacity = Math.max(0.15, 0.55 - b.y / 6000);
+      setCarPose(cars[BLUE], carStates[BLUE]);
+      setCarPose(cars[ORANGE], carStates[ORANGE]);
+      placeCamera(carStates[player], b, ballCam, dt);
+      renderer.render(scene, camera);
+    },
+  };
+}
