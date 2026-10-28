@@ -114,8 +114,13 @@ function setCarPose(mesh: THREE.Object3D, s: SimCarState) {
 }
 
 export interface CourtScene {
-  /** Draws this state, with the camera following the player's car. dt in seconds since the last frame. */
-  render(ball: SimBallState, cars: Record<Team, SimCarState>, player: Team, ballCam: boolean, dt: number): void;
+  /**
+   * Draws this state, with the camera following the player's car. swivel
+   * points the camera that many radians from the car's heading (positive to
+   * its right) and overrides ball cam; null follows normally. dt in seconds
+   * since the last frame.
+   */
+  render(ball: SimBallState, cars: Record<Team, SimCarState>, player: Team, ballCam: boolean, swivel: number | null, dt: number): void;
 }
 
 export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig): CourtScene {
@@ -150,13 +155,24 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
     camera.updateProjectionMatrix();
   }
 
-  function placeCamera(carState: SimCarState, ballPos: THREE.Vector3, ballCam: boolean, dt: number) {
+  function flat(v: THREE.Vector3): THREE.Vector3 {
+    v.y = 0;
+    return v.lengthSq() < 1e-6 ? v.set(0, 0, 1) : v.normalize();
+  }
+
+  function placeCamera(carState: SimCarState, ballPos: THREE.Vector3, ballCam: boolean, swivel: number | null, dt: number) {
     const carPos = toScene(carState.pos);
-    // Behind the car along its heading, or along the line from the ball through the car.
-    const heading = ballCam ? new THREE.Vector3().subVectors(ballPos, carPos) : toScene(carState.rot_mat[0]);
-    heading.y = 0;
-    if (heading.lengthSq() < 1e-6) heading.set(0, 0, 1);
-    heading.normalize();
+    // Behind the car along where it looks: its heading, swivelled by the
+    // stick, or the line from the car to the ball.
+    let heading: THREE.Vector3;
+    if (swivel !== null) {
+      const forward = flat(toScene(carState.rot_mat[0]));
+      const right = flat(toScene(carState.rot_mat[1]));
+      heading = forward.multiplyScalar(Math.cos(swivel)).addScaledVector(right, Math.sin(swivel)).normalize();
+    } else {
+      heading = flat(ballCam ? new THREE.Vector3().subVectors(ballPos, carPos) : toScene(carState.rot_mat[0]));
+    }
+    ballCam &&= swivel === null;
     const target = carPos.clone().addScaledVector(heading, -CAMERA_DISTANCE);
     target.y = Math.max(carPos.y + CAMERA_HEIGHT, 40);
     const t = cameraReady ? 1 - Math.exp(-CAMERA_FOLLOW * dt) : 1;
@@ -168,7 +184,7 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
   }
 
   return {
-    render(ballState, carStates, player, ballCam, dt) {
+    render(ballState, carStates, player, ballCam, swivel, dt) {
       resize();
       const b = toScene(ballState.pos);
       ball.position.copy(b);
@@ -176,7 +192,7 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
       shadowMaterial.opacity = Math.max(0.15, 0.55 - b.y / 6000);
       setCarPose(cars[BLUE], carStates[BLUE]);
       setCarPose(cars[ORANGE], carStates[ORANGE]);
-      placeCamera(carStates[player], b, ballCam, dt);
+      placeCamera(carStates[player], b, ballCam, swivel, dt);
       renderer.render(scene, camera);
     },
   };

@@ -162,7 +162,7 @@ async function main() {
     }
 
     updateHud();
-    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, PLAYER, ballCam, dt);
+    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, PLAYER, ballCam, input.cameraSwivel(), dt);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

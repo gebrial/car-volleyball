@@ -4,7 +4,7 @@
 // Gamepad (standard mapping, Xbox names): RT/LT throttle and reverse, left
 // stick steer, pitch and yaw, A jump, B boost, LB/RB air roll left and right
 // and, on the ground, powerslide, X powerslide and free air roll (with the
-// stick), Y ball cam.
+// stick), Y ball cam, right stick swivels the camera.
 // Keyboard: W/S throttle and pitch, A/D steer and yaw, right mouse or Space
 // jump, left mouse or K boost, Shift powerslide and free air roll, Q/E air
 // roll left and right, C ball cam.
@@ -23,6 +23,8 @@ export interface PlayerInput {
   update(): void;
   /** The current controls. */
   controls(): CarControls;
+  /** Where the right stick points the camera, in radians from the car's heading (positive to its right), or null when centred. */
+  cameraSwivel(): number | null;
   /** True once per press of the ball cam button. */
   takeBallCamToggle(): boolean;
   /** True once per press of A, Start, Enter or Space: for "press to continue" screens. */
@@ -109,6 +111,14 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
     },
     controls() {
       return usingPad && pad ? gamepadControls(pad) : keyboard();
+    },
+    cameraSwivel() {
+      if (!usingPad || !pad) return null;
+      const x = pad.axes[2] ?? 0;
+      const y = pad.axes[3] ?? 0;
+      if (Math.hypot(x, y) < 0.5) return null;
+      // Stick up (negative y) looks ahead, down looks behind.
+      return Math.atan2(x, -y);
     },
     takeBallCamToggle() {
       const toggled = ballCamToggles > 0;
