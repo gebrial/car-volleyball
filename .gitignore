@@ -2,6 +2,3 @@ node_modules/
 dist/
 # Meshes dumped from the user's own game install. They never ship.
 local-assets/
-# Quarto previews of the docs
-docs/*.html
-docs/*_files/
