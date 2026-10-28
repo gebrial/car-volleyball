@@ -99,3 +99,4 @@ Steps 6 and 7 don't depend on steps 2–5. Volleyball training does not start un
 ## Open
 
 - Shot clock length. Stage 1 trains on 8 s throughout.
+- Crossing respawn. Volleyball stage 2 (the serve advantage, notes in the training repo's `reports/volleyball-stage2-notes.html`) may add a delay to the instant respawn. That changes `src/volleyball.ts` and the rules fixtures along with the Python rules.
