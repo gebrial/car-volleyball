@@ -44,6 +44,33 @@ Settled on 2026-10-27, when steps 4 and 5 were skipped to get to a playable game
 - **Devices:** desktop with a gamepad or keyboard; phones get a message saying so. No sound in v1.
 - **Hosting:** GitHub Pages from GitHub Actions, at volleyball.gebrial.ca (a CNAME to `gebrial.github.io` at the user's DNS host, Squarespace). Cloudflare Pages was the earlier plan; nothing needs its custom headers yet.
 
+## Watch mode
+
+Settled in a /grilling session on 2026-10-29. Instead of playing, the viewer can watch the bot play a copy of itself.
+
+- **Choosing it:** the start screen offers Play (A, Enter or Space) and Watch (X or Tab), and shows both as buttons that can be clicked or tapped. This is the first piece of match flow.
+- **The bots:** both sides run the same release, one ONNX session, both observations in one batched call every 8 ticks, as `scripts/measure.ts` does. Pairing different releases waits until there is a second volleyball release worth comparing.
+- **Camera:** a broadcast view by default, from a fixed point off the court's long side with blue on the left, high and pulled back, at a fixed distance, sliding eased along the court to follow the ball while keeping the net and both halves in view. Y or C cycles broadcast, blue's chase cam and orange's chase cam. The chase views are always in ball cam, and the right stick still swivels them.
+- **Text:** the HUD and the match result name teams by colour ("Orange's clock", "Blue wins 11–7"), with a small "Watching: bot vs bot" label and the camera button.
+- **Between matches:** the final score shows for 4 s (A, Enter or a tap skips it), then a new match starts with a random first server, until the viewer leaves.
+- **Leaving:** Esc or Back returns to the start screen from either mode, at once, abandoning the match. No confirmation, pause or speed controls yet; a confirmation belongs with pause, under match flow.
+- **Phones:** phones can watch. The message becomes "Playing needs a keyboard or gamepad; tap to watch", and tapping the court cycles the views. There is no way back to the start screen on a phone, since it can only watch. If it runs badly on a real phone, phones go back to being blocked.
+
+### Build order
+
+Each step is one small commit, reviewed before it is committed.
+
+1. **docs:** this section.
+2. **refactor:** `src/main.ts` replaces the fixed player and bot teams with the set of teams the bot drives in this match, acted for in one batched call. Play behaves as before.
+3. **feat:** the start screen's Play and Watch. Watch runs bot vs bot with the existing chase cam on blue; the HUD and result text name teams by colour.
+4. **feat:** watched matches restart on their own after 4 s, skippable.
+5. **feat:** Esc or Back returns to the start screen from either mode.
+6. **refactor:** `scene.render` takes a camera view (`{ kind: "chase", team, ballCam, swivel }`) instead of separate arguments. The picture doesn't change.
+7. **feat:** the broadcast view, watch mode's default. Framing tuned by eye.
+8. **feat:** Y or C cycles broadcast, blue chase and orange chase while watching.
+9. **feat:** phones can watch, tapping to start and to cycle the views. Dropped if it runs badly.
+10. **docs:** a Progress line once it is live.
+
 ## Volleyball rules
 
 - **Court:** a floor and a net only, with no walls and no ceiling (ADR 0006). The floor is an infinite plane with painted court lines. Each half is a 3500 × 3500 uu square, so the court is 3500 wide and 7000 long. The net's top is 450 uu above the floor. Both are single values in the court config, chosen from the measurements below.
@@ -113,7 +140,7 @@ Steps 6 and 7 don't depend on steps 2–5. Volleyball training does not start un
 
 - Step 9's headless measurement done on 2026-10-27. `scripts/measure.ts` plays `volleyball1-gravity-ramp-post` against itself on the WASM court (`src/game.ts`, `src/court.ts`, `src/bot.ts`), 400 rallies in about a minute. Over three seeds each, the browser and Python's `volleyball_measurements.py` agree: server won 65.5% and 67.1%, touches per rally 5.47 and 5.52, rallies ending in, out and on the clock 582/583/35 and 589/582/30, about 18.5 car crossings a minute in both. The ball came back over the net in 94.8% of browser rallies and 92.7% of Python ones, about two standard errors apart: small enough to be noise, or a small difference in the serve's starting car state (the browser starts from RocketSim's default car state, Python from rlgym's). The bot plays in the browser as it does in training.
 
-- The playable court went live on 2026-10-27 at https://volleyball.gebrial.ca: the player on blue against `volleyball1-gravity-ramp-post`, one match to the defaults, then play again (`src/main.ts`, `src/input.ts`, `src/render/scene.ts`). Gamepad controls follow the user's layout (LB/RB air roll and powerslide, right stick swivels the camera). The camera circles the car at an eased angle; car cam follows the car's horizontal travel in the air. CI publishes `main` to GitHub Pages after the checks pass. Next: match flow (start screen, pause, match over, rematch), then settings.
+- The playable court went live on 2026-10-27 at https://volleyball.gebrial.ca: the player on blue against `volleyball1-gravity-ramp-post`, one match to the defaults, then play again (`src/main.ts`, `src/input.ts`, `src/render/scene.ts`). Gamepad controls follow the user's layout (LB/RB air roll and powerslide, right stick swivels the camera). The camera circles the car at an eased angle; car cam follows the car's horizontal travel in the air. CI publishes `main` to GitHub Pages after the checks pass. Next: watch mode (above), whose start screen begins match flow; then the rest of match flow (pause, match over, rematch), then settings.
 
 ## Open
 
