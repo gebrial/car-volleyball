@@ -93,7 +93,8 @@ async function main() {
   const canvas = $<HTMLCanvasElement>("court");
   const scene = createCourtScene(canvas, DEFAULT_COURT);
   const input = createPlayerInput(canvas);
-  const game = new VolleyballGame(rs, DEFAULT_SETTINGS, DEFAULT_COURT, random() < 0.5 ? BLUE : ORANGE);
+  const randomServer = (): Team => (random() < 0.5 ? BLUE : ORANGE);
+  const game = new VolleyballGame(rs, DEFAULT_SETTINGS, DEFAULT_COURT, randomServer());
 
   type Phase = { kind: "ready" } | { kind: "playing" } | { kind: "point"; secondsLeft: number } | { kind: "over" };
   let phase: Phase = { kind: "ready" };
@@ -153,57 +154,83 @@ async function main() {
     }
   }
 
+  /** Play or Watch if one was pressed or clicked since the last frame. Taken every frame, so presses during play don't carry over to the next start screen. */
+  function takeChoice(): Mode | null {
+    const confirmed = input.takeConfirm();
+    const watch = input.takeWatch();
+    const choice: Mode | null = confirmed ? "play" : watch ? "watch" : clicked;
+    clicked = null;
+    return choice;
+  }
+
+  function beginMatch(choice: Mode) {
+    if (phase.kind === "over") game.startMatch(randomServer());
+    mode = choice;
+    botTeams = mode === "watch" ? [BLUE, ORANGE] : [BOT];
+    overlay.hidden = true;
+    hud.hidden = false;
+    watching.hidden = mode !== "watch";
+    startRally();
+  }
+
+  function startRally() {
+    phase = { kind: "playing" };
+    tick = 0;
+    carry = 0;
+  }
+
+  function waitForServe(pause: Extract<Phase, { kind: "point" }>, dt: number) {
+    pause.secondsLeft -= dt;
+    if (pause.secondsLeft > 0) return;
+    game.serve();
+    startRally();
+  }
+
+  /** Runs as many physics ticks as dt has time for, stopping early if the rally ends. */
+  async function playFor(dt: number) {
+    carry += dt;
+    while (carry >= TICK_SECONDS && phase.kind === "playing") await playTick();
+  }
+
+  async function playTick() {
+    if (tick % ACTION_REPEAT === 0) await botAct();
+    const events = game.tick({ [BLUE]: controlsOf(BLUE), [ORANGE]: controlsOf(ORANGE) } as Record<Team, CarControls>);
+    tick++;
+    carry -= TICK_SECONDS;
+    if (events.some((e) => e.type === "RallyEnd")) endRally();
+  }
+
+  function endRally() {
+    const { winner, score } = game.match;
+    if (winner === null) {
+      phase = { kind: "point", secondsLeft: POINT_PAUSE_SECONDS };
+      return;
+    }
+    phase = { kind: "over" };
+    show(resultText(winner, score));
+  }
+
+  function draw(dt: number) {
+    updateHud();
+    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, PLAYER, ballCam, input.cameraSwivel(), dt);
+  }
+
   async function frame(now: number) {
     const dt = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
     last = now;
     input.update();
     if (input.takeBallCamToggle()) ballCam = !ballCam;
-    const confirmed = input.takeConfirm();
-    const watch = input.takeWatch();
-    const choice: Mode | null = confirmed ? "play" : watch ? "watch" : clicked;
-    clicked = null;
+    const choice = takeChoice();
 
     if (phase.kind === "ready" || phase.kind === "over") {
-      if (choice !== null) {
-        if (phase.kind === "over") game.startMatch(random() < 0.5 ? BLUE : ORANGE);
-        mode = choice;
-        botTeams = mode === "watch" ? [BLUE, ORANGE] : [BOT];
-        overlay.hidden = true;
-        hud.hidden = false;
-        watching.hidden = mode !== "watch";
-        phase = { kind: "playing" };
-        tick = 0;
-        carry = 0;
-      }
+      if (choice !== null) beginMatch(choice);
     } else if (phase.kind === "point") {
-      phase.secondsLeft -= dt;
-      if (phase.secondsLeft <= 0) {
-        game.serve();
-        phase = { kind: "playing" };
-        tick = 0;
-        carry = 0;
-      }
+      waitForServe(phase, dt);
     } else {
-      carry += dt;
-      while (carry >= TICK_SECONDS && phase.kind === "playing") {
-        if (tick % ACTION_REPEAT === 0) await botAct();
-        const events = game.tick({ [BLUE]: controlsOf(BLUE), [ORANGE]: controlsOf(ORANGE) } as Record<Team, CarControls>);
-        tick++;
-        carry -= TICK_SECONDS;
-        for (const e of events) {
-          if (e.type !== "RallyEnd") continue;
-          if (game.match.winner !== null) {
-            phase = { kind: "over" };
-            show(resultText(game.match.winner, game.match.score));
-          } else {
-            phase = { kind: "point", secondsLeft: POINT_PAUSE_SECONDS };
-          }
-        }
-      }
+      await playFor(dt);
     }
 
-    updateHud();
-    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, PLAYER, ballCam, input.cameraSwivel(), dt);
+    draw(dt);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
