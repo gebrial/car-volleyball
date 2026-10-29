@@ -95,14 +95,21 @@ async function main() {
 
   let ballCam = true;
   let tick = 0;
-  let botControls: CarControls | null = null;
+  // The teams the bot drives this match; the player drives the rest.
+  const botTeams: Team[] = [BOT];
+  const botControls: Partial<Record<Team, CarControls>> = {};
   let carry = 0;
   let last = performance.now();
 
   async function botAct() {
     const state = game.observationState();
-    const [controls] = await chooseControls(policy, release.actions.table, [buildObs(state, AGENT_IDS[BOT], layout)], random);
-    botControls = controls!;
+    const obs = botTeams.map((team) => buildObs(state, AGENT_IDS[team], layout));
+    const controls = await chooseControls(policy, release.actions.table, obs, random);
+    botTeams.forEach((team, i) => (botControls[team] = controls[i]!));
+  }
+
+  function controlsOf(team: Team): CarControls {
+    return botTeams.includes(team) ? botControls[team]! : input.controls();
   }
 
   function updateHud() {
@@ -146,7 +153,7 @@ async function main() {
       carry += dt;
       while (carry >= TICK_SECONDS && phase.kind === "playing") {
         if (tick % ACTION_REPEAT === 0) await botAct();
-        const events = game.tick({ [PLAYER]: input.controls(), [BOT]: botControls! } as Record<Team, CarControls>);
+        const events = game.tick({ [BLUE]: controlsOf(BLUE), [ORANGE]: controlsOf(ORANGE) } as Record<Team, CarControls>);
         tick++;
         carry -= TICK_SECONDS;
         for (const e of events) {
