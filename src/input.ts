@@ -4,10 +4,11 @@
 // Gamepad (standard mapping, Xbox names): RT/LT throttle and reverse, left
 // stick steer, pitch and yaw, A jump, B boost, LB/RB air roll left and right
 // and, on the ground, powerslide, X powerslide and free air roll (with the
-// stick), Y ball cam, right stick swivels the camera.
+// stick), Y ball cam, right stick swivels the camera. X on the start screen
+// watches.
 // Keyboard: W/S throttle and pitch, A/D steer and yaw, right mouse or Space
 // jump, left mouse or K boost, Shift powerslide and free air roll, Q/E air
-// roll left and right, C ball cam.
+// roll left and right, C ball cam, Tab on the start screen watches.
 
 import type { CarControls } from "./physics";
 
@@ -29,6 +30,8 @@ export interface PlayerInput {
   takeBallCamToggle(): boolean;
   /** True once per press of A, Start, Enter or Space: for "press to continue" screens. */
   takeConfirm(): boolean;
+  /** True once per press of X or Tab: the start screen's Watch. */
+  takeWatch(): boolean;
 }
 
 export function createPlayerInput(target: HTMLElement): PlayerInput {
@@ -37,6 +40,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
   let usingPad = false;
   let ballCamToggles = 0;
   let confirms = 0;
+  let watches = 0;
   let pad: Gamepad | null = null;
   let padButtonsBefore: boolean[] = [];
 
@@ -45,7 +49,10 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
     if (!e.repeat) {
       if (e.code === "KeyC") ballCamToggles++;
       if (e.code === "Enter" || e.code === "Space") confirms++;
+      if (e.code === "Tab") watches++;
     }
+    // Tab would otherwise move focus off the court.
+    if (e.code === "Tab") e.preventDefault();
     keys.add(e.code);
   });
   window.addEventListener("keyup", (e) => keys.delete(e.code));
@@ -106,6 +113,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
       const pressedNow = (b: number) => !!now[b] && !padButtonsBefore[b];
       if (pressedNow(BUTTON.Y)) ballCamToggles++;
       if (pressedNow(BUTTON.A) || pressedNow(BUTTON.START)) confirms++;
+      if (pressedNow(BUTTON.X)) watches++;
       if (now.some((b, i) => b && !padButtonsBefore[i]) || pad.axes.some((a) => Math.abs(a) > 0.5)) usingPad = true;
       padButtonsBefore = now;
     },
@@ -129,6 +137,11 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
       const confirmed = confirms > 0;
       confirms = 0;
       return confirmed;
+    },
+    takeWatch() {
+      const watch = watches > 0;
+      watches = 0;
+      return watch;
     },
   };
 }

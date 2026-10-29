@@ -12,11 +12,16 @@
     <div id="hud" hidden>
       <div class="score"><span class="blue" id="score-blue">0</span><span class="dash">–</span><span class="orange" id="score-orange">0</span></div>
       <div class="clock" id="clock"></div>
+      <div class="watching" id="watching" hidden>Watching: bot vs bot</div>
     </div>
     <div id="overlay">
       <h1>Car Volleyball</h1>
       <p id="message">Loading the bot…</p>
       <div class="bar"><div id="progress"></div></div>
+      <div class="choices" id="choices" hidden>
+        <button id="play">Play<small>A, Enter or Space</small></button>
+        <button id="watch">Watch the bot play itself<small>X or Tab</small></button>
+      </div>
       <p class="controls">
         Gamepad: RT/LT drive, A jump, B boost, LB/RB air roll and powerslide, Y ball cam, right stick looks around.<br />
         Keyboard: W/A/S/D drive, right mouse or Space jump, left mouse or K boost, Shift powerslide, Q/E air roll, C ball cam.

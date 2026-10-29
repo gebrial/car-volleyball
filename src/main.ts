@@ -1,5 +1,6 @@
-// The playable court: the player (blue) against the bot (orange), one match
-// to the default settings, then "play again".
+// The playable court: the player (blue) against the bot (orange), or the bot
+// against a copy of itself, one match to the default settings, then the
+// start screen's choice again.
 
 import { ACTION_REPEAT, chooseControls, seededRandom } from "./bot";
 import { AGENT_IDS, VolleyballGame } from "./game";
@@ -27,6 +28,12 @@ const message = $<HTMLParagraphElement>("message");
 const progress = $<HTMLDivElement>("progress");
 const hud = $<HTMLDivElement>("hud");
 const clock = $<HTMLDivElement>("clock");
+const watching = $<HTMLDivElement>("watching");
+const choices = $<HTMLDivElement>("choices");
+
+function teamName(team: Team): string {
+  return team === BLUE ? "Blue" : "Orange";
+}
 
 function show(text: string) {
   overlay.hidden = false;
@@ -90,13 +97,25 @@ async function main() {
 
   type Phase = { kind: "ready" } | { kind: "playing" } | { kind: "point"; secondsLeft: number } | { kind: "over" };
   let phase: Phase = { kind: "ready" };
-  show("Press A, Enter or Space to start");
+  type Mode = "play" | "watch";
+  let mode: Mode = "play";
+  // A click on Play or Watch, taken at the next frame like a key press.
+  let clicked: Mode | null = null;
+  for (const m of ["play", "watch"] as const) {
+    $<HTMLButtonElement>(m).addEventListener("click", (e) => {
+      clicked = m;
+      // So Enter or Space afterwards doesn't press the button again.
+      (e.currentTarget as HTMLButtonElement).blur();
+    });
+  }
+  show("Play against the bot, or watch it play a copy of itself.");
   progress.parentElement!.hidden = true;
+  choices.hidden = false;
 
   let ballCam = true;
   let tick = 0;
   // The teams the bot drives this match; the player drives the rest.
-  const botTeams: Team[] = [BOT];
+  let botTeams: Team[] = [BOT];
   const botControls: Partial<Record<Team, CarControls>> = {};
   let carry = 0;
   let last = performance.now();
@@ -112,13 +131,22 @@ async function main() {
     return botTeams.includes(team) ? botControls[team]! : input.controls();
   }
 
+  function resultText(winner: Team, score: Record<Team, number>): string {
+    if (mode === "watch") {
+      const loser = winner === BLUE ? ORANGE : BLUE;
+      return `${teamName(winner)} wins ${score[winner]}–${score[loser]}.`;
+    }
+    return `${winner === PLAYER ? "You win" : "The bot wins"} ${score[PLAYER]}–${score[BOT]}.`;
+  }
+
   function updateHud() {
     $("score-blue").textContent = String(game.match.score[BLUE]);
     $("score-orange").textContent = String(game.match.score[ORANGE]);
     const rally = game.rally;
     if (rally.result === null && rally.clockRunning) {
       const seconds = rally.clockTicksLeft / TICK_RATE;
-      clock.textContent = `${rally.ballSide === PLAYER ? "Your" : "Bot's"} clock ${seconds.toFixed(1)}`;
+      const whose = mode === "watch" ? teamName(rally.ballSide) + "'s" : rally.ballSide === PLAYER ? "Your" : "Bot's";
+      clock.textContent = `${whose} clock ${seconds.toFixed(1)}`;
       clock.classList.toggle("low", seconds < LOW_CLOCK_SECONDS);
     } else {
       clock.textContent = "";
@@ -131,12 +159,18 @@ async function main() {
     input.update();
     if (input.takeBallCamToggle()) ballCam = !ballCam;
     const confirmed = input.takeConfirm();
+    const watch = input.takeWatch();
+    const choice: Mode | null = confirmed ? "play" : watch ? "watch" : clicked;
+    clicked = null;
 
     if (phase.kind === "ready" || phase.kind === "over") {
-      if (confirmed) {
+      if (choice !== null) {
         if (phase.kind === "over") game.startMatch(random() < 0.5 ? BLUE : ORANGE);
+        mode = choice;
+        botTeams = mode === "watch" ? [BLUE, ORANGE] : [BOT];
         overlay.hidden = true;
         hud.hidden = false;
+        watching.hidden = mode !== "watch";
         phase = { kind: "playing" };
         tick = 0;
         carry = 0;
@@ -160,7 +194,7 @@ async function main() {
           if (e.type !== "RallyEnd") continue;
           if (game.match.winner !== null) {
             phase = { kind: "over" };
-            show(`${game.match.winner === PLAYER ? "You win" : "The bot wins"} ${game.match.score[PLAYER]}–${game.match.score[BOT]}. Press A, Enter or Space to play again`);
+            show(resultText(game.match.winner, game.match.score));
           } else {
             phase = { kind: "point", secondsLeft: POINT_PAUSE_SECONDS };
           }
@@ -177,5 +211,6 @@ async function main() {
 
 main().catch((e) => {
   console.error(e);
+  choices.hidden = true;
   show(`Something went wrong: ${e instanceof Error ? e.message : String(e)}`);
 });
