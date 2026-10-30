@@ -20,6 +20,8 @@ const TICK_SECONDS = 1 / TICK_RATE;
 // A slow frame never makes the game race to catch up by more than this.
 const MAX_FRAME_SECONDS = 0.25;
 const POINT_PAUSE_SECONDS = 1.5;
+// How long a watched match's result shows before the next one starts.
+const NEXT_MATCH_SECONDS = 4;
 const LOW_CLOCK_SECONDS = 3;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -96,7 +98,14 @@ async function main() {
   const randomServer = (): Team => (random() < 0.5 ? BLUE : ORANGE);
   const game = new VolleyballGame(rs, DEFAULT_SETTINGS, DEFAULT_COURT, randomServer());
 
-  type Phase = { kind: "ready" } | { kind: "playing" } | { kind: "point"; secondsLeft: number } | { kind: "over" };
+  // A played match ends "over", back at the start screen; a watched one ends
+  // in "nextMatch", which starts the next one by itself.
+  type Phase =
+    | { kind: "ready" }
+    | { kind: "playing" }
+    | { kind: "point"; secondsLeft: number }
+    | { kind: "over" }
+    | { kind: "nextMatch"; result: string; secondsLeft: number };
   let phase: Phase = { kind: "ready" };
   type Mode = "play" | "watch";
   let mode: Mode = "play";
@@ -109,6 +118,9 @@ async function main() {
       (e.currentTarget as HTMLButtonElement).blur();
     });
   }
+  // A click or tap anywhere on the overlay, which skips the wait for the next watched match.
+  let overlayTapped = false;
+  overlay.addEventListener("click", () => (overlayTapped = true));
   show("Play against the bot, or watch it play a copy of itself.");
   progress.parentElement!.hidden = true;
   choices.hidden = false;
@@ -163,8 +175,15 @@ async function main() {
     return choice;
   }
 
+  function takeOverlayTap(): boolean {
+    const tapped = overlayTapped;
+    overlayTapped = false;
+    return tapped;
+  }
+
   function beginMatch(choice: Mode) {
-    if (phase.kind === "over") game.startMatch(randomServer());
+    // The game already holds a fresh match before the first one.
+    if (phase.kind !== "ready") game.startMatch(randomServer());
     mode = choice;
     botTeams = mode === "watch" ? [BLUE, ORANGE] : [BOT];
     overlay.hidden = true;
@@ -184,6 +203,15 @@ async function main() {
     if (pause.secondsLeft > 0) return;
     game.serve();
     startRally();
+  }
+
+  function waitForNextMatch(wait: Extract<Phase, { kind: "nextMatch" }>, dt: number, skip: boolean) {
+    wait.secondsLeft -= dt;
+    if (skip || wait.secondsLeft <= 0) {
+      beginMatch("watch");
+      return;
+    }
+    show(`${wait.result} Next match in ${Math.ceil(wait.secondsLeft)}…`);
   }
 
   /** Runs as many physics ticks as dt has time for, stopping early if the rally ends. */
@@ -206,7 +234,14 @@ async function main() {
       phase = { kind: "point", secondsLeft: POINT_PAUSE_SECONDS };
       return;
     }
+    if (mode === "watch") {
+      phase = { kind: "nextMatch", result: resultText(winner, score), secondsLeft: NEXT_MATCH_SECONDS };
+      choices.hidden = true;
+      show(`${phase.result} Next match in ${NEXT_MATCH_SECONDS}…`);
+      return;
+    }
     phase = { kind: "over" };
+    choices.hidden = false;
     show(resultText(winner, score));
   }
 
@@ -221,9 +256,12 @@ async function main() {
     input.update();
     if (input.takeBallCamToggle()) ballCam = !ballCam;
     const choice = takeChoice();
+    const tapped = takeOverlayTap();
 
     if (phase.kind === "ready" || phase.kind === "over") {
       if (choice !== null) beginMatch(choice);
+    } else if (phase.kind === "nextMatch") {
+      waitForNextMatch(phase, dt, choice !== null || tapped);
     } else if (phase.kind === "point") {
       waitForServe(phase, dt);
     } else {
