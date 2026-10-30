@@ -22,6 +22,7 @@ const MAX_FRAME_SECONDS = 0.25;
 const POINT_PAUSE_SECONDS = 1.5;
 // How long a watched match's result shows before the next one starts.
 const NEXT_MATCH_SECONDS = 4;
+const START_TEXT = "Play against the bot, or watch it play a copy of itself.";
 const LOW_CLOCK_SECONDS = 3;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -121,7 +122,7 @@ async function main() {
   // A click or tap anywhere on the overlay, which skips the wait for the next watched match.
   let overlayTapped = false;
   overlay.addEventListener("click", () => (overlayTapped = true));
-  show("Play against the bot, or watch it play a copy of itself.");
+  show(START_TEXT);
   progress.parentElement!.hidden = true;
   choices.hidden = false;
 
@@ -192,6 +193,15 @@ async function main() {
     startRally();
   }
 
+  /** Abandons the match for the start screen, with a fresh match waiting as before the first. */
+  function leaveMatch() {
+    game.startMatch(randomServer());
+    phase = { kind: "ready" };
+    hud.hidden = true;
+    choices.hidden = false;
+    show(START_TEXT);
+  }
+
   function startRally() {
     phase = { kind: "playing" };
     tick = 0;
@@ -257,9 +267,12 @@ async function main() {
     if (input.takeBallCamToggle()) ballCam = !ballCam;
     const choice = takeChoice();
     const tapped = takeOverlayTap();
+    const back = input.takeBack();
 
     if (phase.kind === "ready" || phase.kind === "over") {
       if (choice !== null) beginMatch(choice);
+    } else if (back) {
+      leaveMatch();
     } else if (phase.kind === "nextMatch") {
       waitForNextMatch(phase, dt, choice !== null || tapped);
     } else if (phase.kind === "point") {

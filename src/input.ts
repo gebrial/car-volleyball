@@ -5,15 +5,15 @@
 // stick steer, pitch and yaw, A jump, B boost, LB/RB air roll left and right
 // and, on the ground, powerslide, X powerslide and free air roll (with the
 // stick), Y ball cam, right stick swivels the camera. X on the start screen
-// watches.
+// watches, Back leaves the match.
 // Keyboard: W/S throttle and pitch, A/D steer and yaw, right mouse or Space
 // jump, left mouse or K boost, Shift powerslide and free air roll, Q/E air
-// roll left and right, C ball cam, Tab on the start screen watches.
+// roll left and right, C ball cam, Tab on the start screen watches, Esc leaves the match.
 
 import type { CarControls } from "./physics";
 
 const DEADZONE = 0.15;
-const BUTTON = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9 } as const;
+const BUTTON = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9 } as const;
 
 function deadzone(v: number): number {
   return Math.abs(v) < DEADZONE ? 0 : (v - Math.sign(v) * DEADZONE) / (1 - DEADZONE);
@@ -32,6 +32,8 @@ export interface PlayerInput {
   takeConfirm(): boolean;
   /** True once per press of X or Tab: the start screen's Watch. */
   takeWatch(): boolean;
+  /** True once per press of Esc or Back: leave the match for the start screen. */
+  takeBack(): boolean;
 }
 
 export function createPlayerInput(target: HTMLElement): PlayerInput {
@@ -41,6 +43,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
   let ballCamToggles = 0;
   let confirms = 0;
   let watches = 0;
+  let backs = 0;
   let pad: Gamepad | null = null;
   let padButtonsBefore: boolean[] = [];
 
@@ -50,6 +53,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
       if (e.code === "KeyC") ballCamToggles++;
       if (e.code === "Enter" || e.code === "Space") confirms++;
       if (e.code === "Tab") watches++;
+      if (e.code === "Escape") backs++;
     }
     // Tab would otherwise move focus off the court.
     if (e.code === "Tab") e.preventDefault();
@@ -114,6 +118,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
       if (pressedNow(BUTTON.Y)) ballCamToggles++;
       if (pressedNow(BUTTON.A) || pressedNow(BUTTON.START)) confirms++;
       if (pressedNow(BUTTON.X)) watches++;
+      if (pressedNow(BUTTON.BACK)) backs++;
       if (now.some((b, i) => b && !padButtonsBefore[i]) || pad.axes.some((a) => Math.abs(a) > 0.5)) usingPad = true;
       padButtonsBefore = now;
     },
@@ -142,6 +147,11 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
       const watch = watches > 0;
       watches = 0;
       return watch;
+    },
+    takeBack() {
+      const back = backs > 0;
+      backs = 0;
+      return back;
     },
   };
 }
