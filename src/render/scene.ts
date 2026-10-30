@@ -1,6 +1,7 @@
 // The court in three.js: floor and lines, the net, the ball with its shadow,
-// the two cars, and the player's chase camera. Started from the training
-// repo's court viewer. It draws whatever state it is given each frame.
+// the two cars, the player's chase camera and the broadcast camera. Started
+// from the training repo's court viewer. It draws whatever state it is given
+// each frame.
 
 import * as THREE from "three";
 import { BLUE, ORANGE, type Team, type Vec3 } from "../obs";
@@ -23,6 +24,16 @@ const CAMERA_FOV_HORIZONTAL = 110;
 const CAMERA_DISTANCE = 270;
 const CAMERA_HEIGHT = 100;
 const CAMERA_FOLLOW = 6; // per second; higher follows more tightly
+
+// The broadcast view, from beside and above the court, low enough that a
+// ball's height reads clearly; a 16:9 screen holds the whole court.
+const BROADCAST_FOV_HORIZONTAL = 70;
+const BROADCAST_DISTANCE = 6000; // from the court's centre line
+const BROADCAST_HEIGHT = 3500;
+const BROADCAST_LOOK_HEIGHT = -100;
+// Along the court towards blue's end, still aimed at the centre, so the net is
+// seen at an angle rather than edge on.
+const BROADCAST_OFFSET = 1200;
 
 // RocketSim is z up with blue's half at y < 0; three.js is y up. The game's
 // world is left-handed (a car facing +x with z up has its right at +y), so
@@ -116,9 +127,10 @@ function setCarPose(mesh: THREE.Object3D, s: SimCarState) {
 /**
  * Where the camera looks from. "chase" follows a team's car; swivel points
  * it that many radians from the car's heading (positive to its right) and
- * overrides ball cam, and null follows normally.
+ * overrides ball cam, and null follows normally. "broadcast" watches the
+ * whole court from beside it.
  */
-export type CameraView = { kind: "chase"; team: Team; ballCam: boolean; swivel: number | null };
+export type CameraView = { kind: "chase"; team: Team; ballCam: boolean; swivel: number | null } | { kind: "broadcast" };
 
 export interface CourtScene {
   /** Draws this state from this view. dt in seconds since the last frame. */
@@ -145,16 +157,26 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
 
   const camera = new THREE.PerspectiveCamera(70, 1, 10, 200000);
   let cameraReady = false;
+  // The broadcast camera stays put, off the court's long side on the side
+  // that puts blue's half on the left.
+  const broadcastCamera = new THREE.PerspectiveCamera(70, 1, 10, 200000);
+  broadcastCamera.position.set(-BROADCAST_DISTANCE, BROADCAST_HEIGHT, -BROADCAST_OFFSET);
+  broadcastCamera.lookAt(0, BROADCAST_LOOK_HEIGHT, 0);
+
+  // The FOV settings are horizontal, as the genre states them; three.js takes vertical.
+  function fit(cam: THREE.PerspectiveCamera, horizontalFov: number, aspect: number) {
+    cam.aspect = aspect;
+    cam.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(horizontalFov / 2)) / aspect));
+    cam.updateProjectionMatrix();
+  }
 
   function resize() {
     const { clientWidth: width, clientHeight: height } = canvas;
     const pixelRatio = renderer.getPixelRatio();
     if (canvas.width === Math.floor(width * pixelRatio) && canvas.height === Math.floor(height * pixelRatio)) return;
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    // The FOV setting is horizontal, as the genre states it; three.js takes vertical.
-    camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV_HORIZONTAL / 2)) / camera.aspect));
-    camera.updateProjectionMatrix();
+    fit(camera, CAMERA_FOV_HORIZONTAL, width / height);
+    fit(broadcastCamera, BROADCAST_FOV_HORIZONTAL, width / height);
   }
 
   function flat(v: THREE.Vector3): THREE.Vector3 {
@@ -245,8 +267,12 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
       shadowMaterial.opacity = Math.max(0.15, 0.55 - b.y / 6000);
       setCarPose(cars[BLUE], carStates[BLUE]);
       setCarPose(cars[ORANGE], carStates[ORANGE]);
-      placeCamera(carStates[view.team], b, view.ballCam, view.swivel, dt);
-      renderer.render(scene, camera);
+      if (view.kind === "broadcast") {
+        renderer.render(scene, broadcastCamera);
+      } else {
+        placeCamera(carStates[view.team], b, view.ballCam, view.swivel, dt);
+        renderer.render(scene, camera);
+      }
     },
   };
 }

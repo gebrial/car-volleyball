@@ -257,7 +257,7 @@ async function main() {
 
   function draw(dt: number) {
     updateHud();
-    const view: CameraView = { kind: "chase", team: PLAYER, ballCam, swivel: input.cameraSwivel() };
+    const view: CameraView = mode === "watch" ? { kind: "broadcast" } : { kind: "chase", team: PLAYER, ballCam, swivel: input.cameraSwivel() };
     scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, view, dt);
   }
 
