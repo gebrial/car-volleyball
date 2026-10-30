@@ -24,7 +24,8 @@ const POINT_PAUSE_SECONDS = 1.5;
 const NEXT_MATCH_SECONDS = 4;
 // The camera views Y or C cycles through while watching, the first by default.
 const WATCH_VIEWS = ["broadcast", BLUE, ORANGE] as const;
-const START_TEXT ="Play against the bot, or watch it play a copy of itself.";
+const START_TEXT = "Play against the bot, or watch it play a copy of itself.";
+const TOUCH_START_TEXT = "Playing needs a keyboard or a gamepad. Tap to watch the bot play a copy of itself.";
 const LOW_CLOCK_SECONDS = 3;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -35,6 +36,7 @@ const hud = $<HTMLDivElement>("hud");
 const clock = $<HTMLDivElement>("clock");
 const watching = $<HTMLDivElement>("watching");
 const choices = $<HTMLDivElement>("choices");
+const controlsHelp = $<HTMLParagraphElement>("controls-help");
 
 function teamName(team: Team): string {
   return team === BLUE ? "Blue" : "Orange";
@@ -82,11 +84,9 @@ async function loadBot() {
 }
 
 async function main() {
-  if (window.matchMedia("(pointer: coarse)").matches && !navigator.getGamepads?.().some((p) => p)) {
-    show("This game needs a keyboard or a gamepad. Try it on a computer.");
-    progress.parentElement!.hidden = true;
-    return;
-  }
+  // A phone or tablet with nothing to play with can still watch.
+  const touchOnly = window.matchMedia("(pointer: coarse)").matches && !navigator.getGamepads?.().some((p) => p);
+  const startText = touchOnly ? TOUCH_START_TEXT : START_TEXT;
 
   const [{ release, policy }, rs] = await Promise.all([loadBot(), loadRocketSim()]);
   const layout = layoutForSize(release.observation.size);
@@ -124,9 +124,16 @@ async function main() {
   // A click or tap anywhere on the overlay, which skips the wait for the next watched match.
   let overlayTapped = false;
   overlay.addEventListener("click", () => (overlayTapped = true));
-  show(START_TEXT);
+  // A click or tap on the court while watching moves to the next view.
+  canvas.addEventListener("click", () => {
+    if (mode === "watch") pressCameraButton();
+  });
+  show(startText);
   progress.parentElement!.hidden = true;
   choices.hidden = false;
+  $("play").hidden = touchOnly;
+  $("watch").querySelector("small")!.hidden = touchOnly;
+  controlsHelp.hidden = touchOnly;
 
   let ballCam = true;
   // Which of WATCH_VIEWS the camera shows while watching.
@@ -170,7 +177,7 @@ async function main() {
       clock.textContent = "";
     }
     const view = WATCH_VIEWS[watchView]!;
-    watching.textContent = `Bot vs bot · ${view === "broadcast" ? "Broadcast" : `${teamName(view)}'s car`} · Y or C: next view`;
+    watching.textContent = `Bot vs bot · ${view === "broadcast" ? "Broadcast" : `${teamName(view)}'s car`} · ${touchOnly ? "Tap" : "Y or C"}: next view`;
   }
 
   /** Play or Watch if one was pressed or clicked since the last frame. Taken every frame, so presses during play don't carry over to the next start screen. */
@@ -206,7 +213,7 @@ async function main() {
     watchView = 0;
     hud.hidden = true;
     choices.hidden = false;
-    show(START_TEXT);
+    show(startText);
   }
 
   function startRally() {
@@ -289,6 +296,7 @@ async function main() {
 
     if (phase.kind === "ready" || phase.kind === "over") {
       if (choice !== null) beginMatch(choice);
+      else if (touchOnly && tapped) beginMatch("watch");
     } else if (back) {
       leaveMatch();
     } else if (phase.kind === "nextMatch") {

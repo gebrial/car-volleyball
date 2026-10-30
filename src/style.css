@@ -12,6 +12,7 @@ html, body { margin: 0; height: 100%; background: #0f172a; color: #e2e8f0; font-
 .watching[hidden] { display: none; }
 .choices { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .choices[hidden] { display: none; }
+.choices button[hidden] { display: none; }
 .choices button { display: flex; flex-direction: column; gap: 4px; padding: 12px 20px; font: inherit; font-size: 18px; color: inherit; background: #1e293b; border: 1px solid #334155; border-radius: 8px; cursor: pointer; }
 .choices button:hover { background: #334155; }
 .choices small { font-size: 13px; color: #94a3b8; }
