@@ -9,7 +9,7 @@ import { BLUE, ORANGE, buildObs, layoutForSize, type Team } from "./obs";
 import { loadRocketSim, type CarControls } from "./physics";
 import { createPolicy } from "./policy";
 import { loadModel, type Release } from "./release";
-import { createCourtScene } from "./render/scene";
+import { createCourtScene, type CameraView } from "./render/scene";
 import { DEFAULT_COURT, DEFAULT_SETTINGS, TICK_RATE } from "./volleyball";
 
 declare const __BOT_RELEASE__: string;
@@ -257,7 +257,8 @@ async function main() {
 
   function draw(dt: number) {
     updateHud();
-    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, PLAYER, ballCam, input.cameraSwivel(), dt);
+    const view: CameraView = { kind: "chase", team: PLAYER, ballCam, swivel: input.cameraSwivel() };
+    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, view, dt);
   }
 
   async function frame(now: number) {

@@ -113,14 +113,16 @@ function setCarPose(mesh: THREE.Object3D, s: SimCarState) {
   mesh.matrix.makeBasis(forward, up, right).setPosition(toScene(s.pos));
 }
 
+/**
+ * Where the camera looks from. "chase" follows a team's car; swivel points
+ * it that many radians from the car's heading (positive to its right) and
+ * overrides ball cam, and null follows normally.
+ */
+export type CameraView = { kind: "chase"; team: Team; ballCam: boolean; swivel: number | null };
+
 export interface CourtScene {
-  /**
-   * Draws this state, with the camera following the player's car. swivel
-   * points the camera that many radians from the car's heading (positive to
-   * its right) and overrides ball cam; null follows normally. dt in seconds
-   * since the last frame.
-   */
-  render(ball: SimBallState, cars: Record<Team, SimCarState>, player: Team, ballCam: boolean, swivel: number | null, dt: number): void;
+  /** Draws this state from this view. dt in seconds since the last frame. */
+  render(ball: SimBallState, cars: Record<Team, SimCarState>, view: CameraView, dt: number): void;
 }
 
 export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig): CourtScene {
@@ -235,7 +237,7 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
   }
 
   return {
-    render(ballState, carStates, player, ballCam, swivel, dt) {
+    render(ballState, carStates, view, dt) {
       resize();
       const b = toScene(ballState.pos);
       ball.position.copy(b);
@@ -243,7 +245,7 @@ export function createCourtScene(canvas: HTMLCanvasElement, court: CourtConfig):
       shadowMaterial.opacity = Math.max(0.15, 0.55 - b.y / 6000);
       setCarPose(cars[BLUE], carStates[BLUE]);
       setCarPose(cars[ORANGE], carStates[ORANGE]);
-      placeCamera(carStates[player], b, ballCam, swivel, dt);
+      placeCamera(carStates[view.team], b, view.ballCam, view.swivel, dt);
       renderer.render(scene, camera);
     },
   };
