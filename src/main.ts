@@ -22,7 +22,9 @@ const MAX_FRAME_SECONDS = 0.25;
 const POINT_PAUSE_SECONDS = 1.5;
 // How long a watched match's result shows before the next one starts.
 const NEXT_MATCH_SECONDS = 4;
-const START_TEXT = "Play against the bot, or watch it play a copy of itself.";
+// The camera views Y or C cycles through while watching, the first by default.
+const WATCH_VIEWS = ["broadcast", BLUE, ORANGE] as const;
+const START_TEXT ="Play against the bot, or watch it play a copy of itself.";
 const LOW_CLOCK_SECONDS = 3;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -127,6 +129,8 @@ async function main() {
   choices.hidden = false;
 
   let ballCam = true;
+  // Which of WATCH_VIEWS the camera shows while watching.
+  let watchView = 0;
   let tick = 0;
   // The teams the bot drives this match; the player drives the rest.
   let botTeams: Team[] = [BOT];
@@ -165,6 +169,8 @@ async function main() {
     } else {
       clock.textContent = "";
     }
+    const view = WATCH_VIEWS[watchView]!;
+    watching.textContent = `Bot vs bot · ${view === "broadcast" ? "Broadcast" : `${teamName(view)}'s car`} · Y or C: next view`;
   }
 
   /** Play or Watch if one was pressed or clicked since the last frame. Taken every frame, so presses during play don't carry over to the next start screen. */
@@ -197,6 +203,7 @@ async function main() {
   function leaveMatch() {
     game.startMatch(randomServer());
     phase = { kind: "ready" };
+    watchView = 0;
     hud.hidden = true;
     choices.hidden = false;
     show(START_TEXT);
@@ -255,17 +262,27 @@ async function main() {
     show(resultText(winner, score));
   }
 
+  function pressCameraButton() {
+    if (mode === "watch") watchView = (watchView + 1) % WATCH_VIEWS.length;
+    else ballCam = !ballCam;
+  }
+
+  function cameraView(): CameraView {
+    if (mode === "play") return { kind: "chase", team: PLAYER, ballCam, swivel: input.cameraSwivel() };
+    const view = WATCH_VIEWS[watchView]!;
+    return view === "broadcast" ? { kind: "broadcast" } : { kind: "chase", team: view, ballCam: true, swivel: input.cameraSwivel() };
+  }
+
   function draw(dt: number) {
     updateHud();
-    const view: CameraView = mode === "watch" ? { kind: "broadcast" } : { kind: "chase", team: PLAYER, ballCam, swivel: input.cameraSwivel() };
-    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, view, dt);
+    scene.render(game.ballState(), { 0: game.carState(BLUE), 1: game.carState(ORANGE) }, cameraView(), dt);
   }
 
   async function frame(now: number) {
     const dt = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
     last = now;
     input.update();
-    if (input.takeBallCamToggle()) ballCam = !ballCam;
+    if (input.takeCameraButton()) pressCameraButton();
     const choice = takeChoice();
     const tapped = takeOverlayTap();
     const back = input.takeBack();

@@ -4,11 +4,12 @@
 // Gamepad (standard mapping, Xbox names): RT/LT throttle and reverse, left
 // stick steer, pitch and yaw, A jump, B boost, LB/RB air roll left and right
 // and, on the ground, powerslide, X powerslide and free air roll (with the
-// stick), Y ball cam, right stick swivels the camera. X on the start screen
-// watches, Back leaves the match.
+// stick), Y ball cam or, when watching, the next view, right stick swivels
+// the camera. X on the start screen watches, Back leaves the match.
 // Keyboard: W/S throttle and pitch, A/D steer and yaw, right mouse or Space
 // jump, left mouse or K boost, Shift powerslide and free air roll, Q/E air
-// roll left and right, C ball cam, Tab on the start screen watches, Esc leaves the match.
+// roll left and right, C ball cam or, when watching, the next view, Tab on
+// the start screen watches, Esc leaves the match.
 
 import type { CarControls } from "./physics";
 
@@ -26,8 +27,8 @@ export interface PlayerInput {
   controls(): CarControls;
   /** Where the right stick points the camera, in radians from the car's heading (positive to its right), or null when centred. */
   cameraSwivel(): number | null;
-  /** True once per press of the ball cam button. */
-  takeBallCamToggle(): boolean;
+  /** True once per press of Y or C: ball cam when playing, the next view when watching. */
+  takeCameraButton(): boolean;
   /** True once per press of A, Start, Enter or Space: for "press to continue" screens. */
   takeConfirm(): boolean;
   /** True once per press of X or Tab: the start screen's Watch. */
@@ -40,7 +41,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
   const keys = new Set<string>();
   const mouse = new Set<number>();
   let usingPad = false;
-  let ballCamToggles = 0;
+  let cameraPresses = 0;
   let confirms = 0;
   let watches = 0;
   let backs = 0;
@@ -50,7 +51,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
   window.addEventListener("keydown", (e) => {
     usingPad = false;
     if (!e.repeat) {
-      if (e.code === "KeyC") ballCamToggles++;
+      if (e.code === "KeyC") cameraPresses++;
       if (e.code === "Enter" || e.code === "Space") confirms++;
       if (e.code === "Tab") watches++;
       if (e.code === "Escape") backs++;
@@ -115,7 +116,7 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
       if (!pad) return;
       const now = pad.buttons.map((b) => b.pressed);
       const pressedNow = (b: number) => !!now[b] && !padButtonsBefore[b];
-      if (pressedNow(BUTTON.Y)) ballCamToggles++;
+      if (pressedNow(BUTTON.Y)) cameraPresses++;
       if (pressedNow(BUTTON.A) || pressedNow(BUTTON.START)) confirms++;
       if (pressedNow(BUTTON.X)) watches++;
       if (pressedNow(BUTTON.BACK)) backs++;
@@ -133,9 +134,9 @@ export function createPlayerInput(target: HTMLElement): PlayerInput {
       // Stick up (negative y) looks ahead, down looks behind.
       return Math.atan2(x, -y);
     },
-    takeBallCamToggle() {
-      const toggled = ballCamToggles > 0;
-      ballCamToggles = 0;
+    takeCameraButton() {
+      const toggled = cameraPresses > 0;
+      cameraPresses = 0;
       return toggled;
     },
     takeConfirm() {
