@@ -127,11 +127,26 @@ async function main() {
   }
   // A click or tap anywhere on the overlay, which skips the wait for the next watched match.
   let overlayTapped = false;
-  overlay.addEventListener("click", () => (overlayTapped = true));
-  // A click or tap on the court while watching moves to the next view.
+  overlay.addEventListener("click", () => {
+    tapIntoFullscreen();
+    overlayTapped = true;
+  });
+  // A click or tap on the court while watching moves to the next view, except
+  // a phone's first tap after leaving fullscreen, which only goes back in.
   canvas.addEventListener("click", () => {
+    if (tapIntoFullscreen()) return;
     if (mode === "watch") pressCameraButton();
   });
+
+  // On a phone, a tap while out of fullscreen asks for it, hiding the browser's
+  // bars. Browsers allow that only inside the tap's own handler. Where there is
+  // no fullscreen (iPhone Safari) or it is refused, taps work as before.
+  let fullscreenRefused = false;
+  function tapIntoFullscreen(): boolean {
+    if (!touchOnly || fullscreenRefused || document.fullscreenElement || !document.documentElement.requestFullscreen) return false;
+    document.documentElement.requestFullscreen().catch(() => (fullscreenRefused = true));
+    return true;
+  }
   show(startText);
   progress.parentElement!.hidden = true;
   choices.hidden = false;
