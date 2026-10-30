@@ -10,6 +10,7 @@ import { loadRocketSim, type CarControls } from "./physics";
 import { createPolicy } from "./policy";
 import { loadModel, type Release } from "./release";
 import { createCourtScene, type CameraView } from "./render/scene";
+import { followTilt } from "./tilt";
 import { DEFAULT_COURT, DEFAULT_SETTINGS, TICK_RATE } from "./volleyball";
 
 declare const __BOT_RELEASE__: string;
@@ -87,8 +88,9 @@ async function main() {
   // A phone or tablet with nothing to play with can still watch.
   const touchOnly = window.matchMedia("(pointer: coarse)").matches && !navigator.getGamepads?.().some((p) => p);
   const startText = touchOnly ? TOUCH_START_TEXT : START_TEXT;
-  // style.css draws a touch-only page landscape.
+  // style.css draws a touch-only page landscape, turned the way the phone is held.
   document.documentElement.classList.toggle("touch-only", touchOnly);
+  if (touchOnly) followTilt(document.documentElement);
 
   const [{ release, policy }, rs] = await Promise.all([loadBot(), loadRocketSim()]);
   const layout = layoutForSize(release.observation.size);

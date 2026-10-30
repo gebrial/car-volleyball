@@ -6,6 +6,8 @@ html, body { margin: 0; height: 100%; background: #0f172a; color: #e2e8f0; font-
    body contains them. */
 @media (orientation: portrait) {
   html.touch-only body { position: absolute; top: 0; left: 0; width: 100dvh; height: 100dvw; transform-origin: top left; transform: translateX(100dvw) rotate(90deg); }
+  /* src/tilt.ts: the phone is held the other way, so turn the page the other way. */
+  html.touch-only.held-clockwise body { transform: translateY(100dvh) rotate(-90deg); }
 }
 #hud { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; text-shadow: 0 2px 6px #000a; }
 #hud[hidden] { display: none; }
