@@ -50,11 +50,15 @@ Settled in a /grilling session on 2026-10-29. Instead of playing, the viewer can
 
 - **Choosing it:** the start screen offers Play (A, Enter or Space) and Watch (X or Tab), and shows both as buttons that can be clicked or tapped. This is the first piece of match flow.
 - **The bots:** both sides run the same release, one ONNX session, both observations in one batched call every 8 ticks, as `scripts/measure.ts` does. Pairing different releases waits until there is a second volleyball release worth comparing.
-- **Camera:** a broadcast view by default, from a fixed point off the court's long side with blue on the left, high and pulled back, at a fixed distance, sliding eased along the court to follow the ball while keeping the net and both halves in view. Y or C cycles broadcast, blue's chase cam and orange's chase cam. The chase views are always in ball cam, and the right stick still swivels them.
-- **Text:** the HUD and the match result name teams by colour ("Orange's clock", "Blue wins 11–7"), with a small "Watching: bot vs bot" label and the camera button.
+- **Camera:** a broadcast view by default, fixed, off the court's long side with blue on the left, moved along the court towards blue's end and aimed at the centre so the net is seen at an angle rather than edge on, and low enough that a ball's height reads clearly. Tuned by eye on 2026-10-29 (`BROADCAST_*` in `src/render/scene.ts`); a camera the viewer moves is issue #1. Y or C cycles broadcast, blue's chase cam and orange's chase cam. The chase views are always in ball cam, and the right stick still swivels them.
+- **Text:** the HUD and the match result name teams by colour ("Orange's clock", "Blue wins 11–7"), with a small label naming the view and the button that changes it.
 - **Between matches:** the final score shows for 4 s (A, Enter or a tap skips it), then a new match starts with a random first server, until the viewer leaves.
 - **Leaving:** Esc or Back returns to the start screen from either mode, at once, abandoning the match. No confirmation, pause or speed controls yet; a confirmation belongs with pause, under match flow.
-- **Phones:** phones can watch. The message becomes "Playing needs a keyboard or gamepad; tap to watch", and tapping the court cycles the views. There is no way back to the start screen on a phone, since it can only watch. If it runs badly on a real phone, phones go back to being blocked.
+- **Phones:** phones can watch. The message becomes "Playing needs a keyboard or gamepad; tap to watch", and tapping the court cycles the views. There is no way back to the start screen on a phone, since it can only watch. It runs smoothly on a Pixel 9a (checked 2026-10-29).
+- **Landscape on phones:** settled in a second /grilling session on 2026-10-29. On touch-only devices the game is always drawn landscape. While the browser's viewport is portrait, the whole page, start screen included, is drawn turned 90°; when the browser turns itself to landscape, either way, that turn is dropped and the browser's own rotation takes over. Nothing is locked: `screen.orientation.lock` needs fullscreen and doesn't exist on iPhones. Desktop is never turned.
+- **Following the tilt:** while the viewport stays portrait (auto-rotate off), Android's `devicemotion` gravity picks which way the page is turned, so it is upright whichever way the phone is held. It flips only on a clear tilt and keeps the last direction while the phone is flat. With no tilt reading, the page is upright with the phone turned anticlockwise, Android's default landscape. The flip is instant.
+- **Fullscreen on phones:** the tap that starts watching also asks for fullscreen, which hides the browser's URL bar and the system bars on Android. After the viewer leaves fullscreen, the next tap on the court goes back in, and later taps change the view. Where fullscreen doesn't exist (iPhone Safari), the request fails quietly. Desktop keeps the browser's own F11.
+- **iPhones:** the page turns but the bars stay, and iPhones don't ask for motion permission, so they keep the default direction. A home-screen web app (a manifest with `"display": "fullscreen"`) and the motion prompt are issue #2, for when someone can test on an iPhone.
 
 ### Build order
 
@@ -69,7 +73,12 @@ Each step is one small commit, reviewed before it is committed.
 7. **feat:** the broadcast view, watch mode's default. Framing tuned by eye.
 8. **feat:** Y or C cycles broadcast, blue chase and orange chase while watching.
 9. **feat:** phones can watch, tapping to start and to cycle the views. Dropped if it runs badly.
-10. **docs:** a Progress line once it is live.
+10. **feat:** phones draw the game landscape, turning the whole page 90° while the viewport is portrait.
+11. **feat:** on Android, the turn follows the phone's tilt while the viewport stays portrait.
+12. **feat:** phones go fullscreen on the tap that starts watching, and a tap after leaving it goes back in.
+13. **docs:** a Progress line once it is live.
+
+Steps 11 and 12 are checked on the Pixel 9a after a push; emulation can't fake tilt or fullscreen.
 
 ## Volleyball rules
 
