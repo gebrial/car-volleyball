@@ -87,6 +87,8 @@ async function main() {
   // A phone or tablet with nothing to play with can still watch.
   const touchOnly = window.matchMedia("(pointer: coarse)").matches && !navigator.getGamepads?.().some((p) => p);
   const startText = touchOnly ? TOUCH_START_TEXT : START_TEXT;
+  // style.css draws a touch-only page landscape.
+  document.documentElement.classList.toggle("touch-only", touchOnly);
 
   const [{ release, policy }, rs] = await Promise.all([loadBot(), loadRocketSim()]);
   const layout = layoutForSize(release.observation.size);
