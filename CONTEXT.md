@@ -1,12 +1,20 @@
 # car-volleyball
 
-The glossary, copied from the training repo's `CONTEXT.md` (rocket-league-bot) on 2026-10-27. Terms both repos use keep the same meaning in both.
+The glossary, copied from the training repo's `CONTEXT.md` (rocket-league-bot) on 2026-10-27, with the browser game's own terms added since. Terms both repos use keep the same meaning in both.
 
 ## Language
 
 **Browser game**:
 The car-volleyball game in this repo, run entirely in the player's browser. Volleyball, not soccer, is the game the public plays.
 _Avoid_: web app, website (the site is only the host)
+
+**Watch mode**:
+The browser game's other choice on the start screen: the bot plays a copy of itself while the viewer watches, match after match. The only mode on a phone.
+_Avoid_: spectator mode, demo mode, self-play (self-play is how the bot trains)
+
+**Broadcast view**:
+Watch mode's default camera, fixed beside the court and above it, showing the whole court with the net at an angle. The other views follow one car (chase cam).
+_Avoid_: TV cam, overview
 
 **Volleyball track**:
 Training the car-volleyball bot in the training repo, run with the full stage process but numbered separately from Phase 3 (volleyball stage 1, 2, …) so cross-stage comparisons never mix the two games.
